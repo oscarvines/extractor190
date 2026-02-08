@@ -8,11 +8,10 @@ st.set_page_config(page_title="Lector AEAT 190", layout="wide", page_icon="📂"
 st.title("🚀 Extractor Modelo 190 Profesional")
 
 # --- INICIALIZACIÓN DEL ESTADO ---
-# Esto permite que la app "recuerde" los datos aunque subas más archivos
 if 'datos_acumulados' not in st.session_state:
     st.session_state.datos_acumulados = []
 
-# --- BARRA LATERAL PARA CARGA Y CONTROL ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.header("Configuración")
     uploaded_files = st.file_uploader(
@@ -32,7 +31,7 @@ with st.sidebar:
 # --- LÓGICA DE PROCESAMIENTO ---
 if boton_procesar:
     if uploaded_files:
-        with st.spinner("Extrayendo información de los PDFs..."):
+        with st.spinner("Extrayendo información..."):
             temp_results = []
             for file in uploaded_files:
                 try:
@@ -40,45 +39,50 @@ if boton_procesar:
                     temp_results.extend(datos)
                 except Exception as e:
                     st.error(f"Error en {file.name}: {e}")
-            
-            # Guardamos en el estado de la sesión para que no se borre al filtrar
             st.session_state.datos_acumulados = temp_results
-            st.success(f"¡Hecho! Se han procesado {len(uploaded_files)} archivos.")
+            st.success(f"¡Hecho! {len(temp_results)} registros listos.")
     else:
-        st.warning("Por favor, sube algún archivo primero.")
+        st.warning("Sube archivos primero.")
 
-# --- SECCIÓN DE FILTROS Y DESCARGA ---
+# --- SECCIÓN DE FILTROS CRUZADOS ---
 if st.session_state.datos_acumulados:
     df = pd.DataFrame(st.session_state.datos_acumulados)
     
     st.divider()
-    st.subheader("🎯 Selección y Búsqueda")
+    st.subheader("🎯 Filtros de Búsqueda")
     
-    # Multibúsqueda de nombres
-    lista_nombres = sorted(df['Nombre'].unique())
-    seleccionados = st.multiselect(
-        "Busca y selecciona las personas para el Excel:",
-        options=lista_nombres,
-        placeholder="Escribe para buscar..."
-    )
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        # Filtro de Clave
+        claves_disponibles = sorted(df['Clave'].unique())
+        claves_sel = st.multiselect("Filtrar por Clave:", options=claves_disponibles)
+    
+    # Aplicamos primer filtro de clave para que el buscador de nombres sea inteligente
+    df_temp = df[df['Clave'].isin(claves_sel)] if claves_sel else df
+    
+    with col2:
+        # Filtro de Nombres (basado en el filtro de clave previo)
+        nombres_disponibles = sorted(df_temp['Nombre'].unique())
+        nombres_sel = st.multiselect("Buscar/Seleccionar Nombres:", options=nombres_disponibles)
 
-    # Filtrado dinámico
-    df_mostrar = df[df['Nombre'].isin(seleccionados)] if seleccionados else df
+    # Aplicamos filtro final
+    df_final = df_temp[df_temp['Nombre'].isin(nombres_sel)] if nombres_sel else df_temp
     
-    st.write(f"Mostrando {len(df_mostrar)} registros.")
-    st.dataframe(df_mostrar, use_container_width=True)
+    # Mostrar tabla
+    st.write(f"Mostrando {len(df_final)} registros.")
+    st.dataframe(df_final, use_container_width=True)
 
     # Excel dinámico
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_mostrar.to_excel(writer, index=False, sheet_name='Resultado_190')
+        df_final.to_excel(writer, index=False, sheet_name='Resultado_190')
     
-    label_boton = "📥 Descargar Selección" if seleccionados else "📥 Descargar Todo"
     st.download_button(
-        label=label_boton,
+        label="📥 Descargar Excel Filtrado",
         data=output.getvalue(),
-        file_name="extraccion_190.xlsx",
+        file_name="extraccion_190_filtrada.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.info("Sube los archivos en el menú lateral y pulsa 'Procesar'.")
+    st.info("Sube los archivos y pulsa 'Procesar' para empezar.")
