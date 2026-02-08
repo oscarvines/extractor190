@@ -35,11 +35,21 @@ def extraer_por_instancia(bloque, etiqueta, instancia):
         pass
     return 0.0
 
-def extraer_datos_190(pdf_path):
+def extraer_datos_190(file_object):
+    """
+    Versión compatible con Streamlit: acepta tanto rutas de archivos (str) 
+    como objetos de archivo en memoria (UploadedFile).
+    """
     resultados = []
-    nombre_archivo = os.path.basename(pdf_path)
     
-    with pdfplumber.open(pdf_path) as pdf:
+    # Manejo del nombre del archivo según el origen (Streamlit o Local)
+    if hasattr(file_object, 'name'):
+        nombre_archivo = file_object.name
+    else:
+        nombre_archivo = os.path.basename(file_object)
+    
+    # Abrimos el PDF directamente desde el objeto (ruta o memoria)
+    with pdfplumber.open(file_object) as pdf:
         for page in pdf.pages:
             texto = page.extract_text()
             if not texto: continue
@@ -61,11 +71,9 @@ def extraer_datos_190(pdf_path):
                 d_no_il = extraer_por_instancia(bloque, "Percepción íntegra", 1)
                 
                 # 2. Especie NO IL -> Primera vez que sale "Valoración"
-                # AQUÍ CAPTURAREMOS LOS 4.536,48
                 e_no_il = extraer_por_instancia(bloque, "Valoración", 1)
                 
                 # 3. Dinerarias IL -> Segunda vez que sale "Percepción íntegra"
-                # AQUÍ CAPTURAREMOS LOS 66,68 (y no se duplicará en especie)
                 d_il = extraer_por_instancia(bloque, "Percepción íntegra", 2)
                 
                 # 4. Especie IL -> Segunda vez que sale "Valoración"
@@ -82,13 +90,5 @@ def extraer_datos_190(pdf_path):
                 })
     return resultados
 
-# Ejecución
-archivos = [f for f in os.listdir() if f.lower().endswith('.pdf')]
-consolidado = []
-for f in archivos:
-    print(f"Procesando con lógica de instancias: {f}")
-    consolidado.extend(extraer_datos_190(f))
-
-if consolidado:
-    pd.DataFrame(consolidado).to_excel("Consolidado_Final_V5.xlsx", index=False)
-    print("\n¡Hecho! Revisa el archivo 'Consolidado_Final_V5.xlsx'.")
+# Nota: Hemos eliminado el bucle final 'os.listdir()' para evitar errores 
+# de permisos y rutas en el servidor de Streamlit Cloud.
