@@ -13,3 +13,5 @@ venv/
 
 # Carpeta de versiones antiguas
 obsoleto/
+# Configuración secreta de Streamlit
+.streamlit/secrets.tomlvenv/
