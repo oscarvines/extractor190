@@ -14,6 +14,10 @@ if 'datos_acumulados' not in st.session_state:
 # --- BARRA LATERAL ---
 with st.sidebar:
     st.header("Configuración")
+    
+    # NUEVO: Cuadro para el año
+    anio_input = st.number_input("Año del Modelo:", min_value=2000, max_value=2100, value=2024, step=1, format="%d")
+    
     uploaded_files = st.file_uploader(
         "1. Selecciona los PDFs", 
         type="pdf", 
@@ -36,6 +40,11 @@ if boton_procesar:
             for file in uploaded_files:
                 try:
                     datos = extraer_datos_190(file)
+                    
+                    # NUEVO: Añadimos el año a cada registro antes de guardarlo
+                    for d in datos:
+                        d["Año"] = anio_input
+                        
                     temp_results.extend(datos)
                 except Exception as e:
                     st.error(f"Error en {file.name}: {e}")
@@ -47,6 +56,11 @@ if boton_procesar:
 # --- SECCIÓN DE FILTROS CRUZADOS ---
 if st.session_state.datos_acumulados:
     df = pd.DataFrame(st.session_state.datos_acumulados)
+    
+    # Reordenamos solo para que el Año sea la primera columna
+    if "Año" in df.columns:
+        cols = ["Año"] + [c for c in df.columns if c != "Año"]
+        df = df[cols]
     
     st.divider()
     st.subheader("🎯 Filtros de Búsqueda")
@@ -81,7 +95,7 @@ if st.session_state.datos_acumulados:
     st.download_button(
         label="📥 Descargar Excel Filtrado",
         data=output.getvalue(),
-        file_name="extraccion_190_filtrada.xlsx",
+        file_name=f"extraccion_190_{anio_input}.xlsx", # Ahora el nombre del Excel incluye el año
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
